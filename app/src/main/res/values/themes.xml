@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.AttenBot" parent="Theme.MaterialComponents.Light" />
+</resources>
