@@ -11,11 +11,17 @@ sealed class AppDestination(
     val title: String,
     val icon: ImageVector
 ) {
-    object Sync : AppDestination("sync", "Sync Dashboard", Icons.Rounded.Sync)
-    object History : AppDestination("history", "Yearly History", Icons.Rounded.DateRange)
-    object Export : AppDestination("export", "Export CSV", Icons.Rounded.FileDownload)
+    object Sync : AppDestination(ROUTE_SYNC, "Sync Dashboard", Icons.Rounded.Sync)
+    object History : AppDestination(ROUTE_HISTORY, "Yearly History", Icons.Rounded.DateRange)
+    object Export : AppDestination(ROUTE_EXPORT, "Export CSV", Icons.Rounded.FileDownload)
 
     companion object {
-        val entries = listOf(Sync, History, Export)
+        const val ROUTE_SYNC = "sync"
+        const val ROUTE_HISTORY = "history"
+        const val ROUTE_EXPORT = "export"
+
+        val entries: List<AppDestination> by lazy {
+            listOf(Sync, History, Export)
+        }
     }
 }
