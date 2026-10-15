@@ -15,5 +15,7 @@ data class AttendanceRecord(
     val id: Int = 0,
     val date: String,
     val rollNumber: String,
-    val studentName: String
+    val studentName: String,
+    val deviceId: String = "CLASSROOM_A",
+    val timestamp: String = ""
 )

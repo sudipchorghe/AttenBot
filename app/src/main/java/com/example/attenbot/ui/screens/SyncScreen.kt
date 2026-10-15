@@ -1,5 +1,8 @@
 package com.example.attenbot.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,23 +18,33 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudDownload
-import androidx.compose.material.icons.rounded.DateRange
-import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NetworkCheck
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +52,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.attenbot.data.repository.SyncResult
@@ -58,24 +73,44 @@ import com.example.attenbot.ui.theme.StatusRed
 fun SyncScreen(
     uiState: SyncUiState,
     onUrlChange: (String) -> Unit,
-    onSyncClick: () -> Unit,
-    onNavigateToHistory: () -> Unit,
-    onNavigateToExport: () -> Unit,
+    onSaveUrlClick: (String) -> Unit,
+    onConnectClick: () -> Unit,
+    onTestConnectionClick: () -> Unit,
+    onRefreshStatusClick: () -> Unit,
+    onRefreshAttendanceClick: () -> Unit,
+    onDownloadCsvClick: (pin: String, uri: Uri) -> Unit,
+    onResetAttendanceClick: (pin: String) -> Unit,
+    onNavigateToTeacherControls: () -> Unit,
+    onNavigateToRtc: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    val computedStatusText = when {
-        uiState.isSyncing -> "Syncing..."
-        uiState.syncResult is SyncResult.Success -> "Success"
-        uiState.syncResult is SyncResult.Error -> "Connection Error"
-        else -> uiState.statusText
+    var showDownloadConfirmDialog by remember { mutableStateOf(false) }
+    var showDownloadPinDialog by remember { mutableStateOf(false) }
+    var downloadPinInput by remember { mutableStateOf("") }
+    var pendingDownloadUri by remember { mutableStateOf<Uri?>(null) }
+
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var showResetPinDialog by remember { mutableStateOf(false) }
+    var resetPinInput by remember { mutableStateOf("") }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            pendingDownloadUri = uri
+            showDownloadPinDialog = true
+        }
     }
 
-    val displayEndpoint = if (uiState.esp32Url.contains("192.168.4.1")) {
-        "${uiState.esp32Url} - Attendance_Bot AP"
-    } else {
-        uiState.esp32Url
+    val computedStatusText = when {
+        uiState.isConnecting -> "Connecting..."
+        uiState.isRefreshing -> "Refreshing..."
+        uiState.isSyncing -> "Syncing..."
+        uiState.syncResult is SyncResult.Success -> "Success"
+        uiState.syncResult is SyncResult.Error || !uiState.isConnected -> "Connection Error"
+        else -> uiState.statusText
     }
 
     LazyColumn(
@@ -87,7 +122,7 @@ fun SyncScreen(
     ) {
         item {
             Text(
-                text = "Live Sync Dashboard",
+                text = "Attendance Dashboard",
                 style = TextStyle(
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
@@ -100,18 +135,18 @@ fun SyncScreen(
         item {
             StatusHeaderTile(
                 statusText = computedStatusText,
-                deviceIpOrUrl = displayEndpoint,
+                deviceIpOrUrl = uiState.baseUrl,
                 isConnected = uiState.isConnected && uiState.syncResult !is SyncResult.Error,
-                lastSyncTime = uiState.lastSyncTime ?: "Not synced yet",
-                totalRecords = uiState.totalRecordsCount,
-                isSyncing = uiState.isSyncing
+                lastSyncTime = uiState.lastConnectionTime ?: uiState.lastSyncTime ?: "Not connected yet",
+                totalRecords = uiState.count,
+                isSyncing = uiState.isConnecting || uiState.isRefreshing || uiState.isSyncing
             )
         }
 
-        val currentResult = uiState.syncResult
-        if (currentResult is SyncResult.Error) {
+        if (uiState.errorMessage != null || uiState.syncResult is SyncResult.Error) {
+            val errorText = uiState.errorMessage ?: (uiState.syncResult as? SyncResult.Error)?.message ?: "Connection error"
             item {
-                SettingsSection(title = "Connection Error Warning") {
+                SettingsSection(title = "Connection Diagnostic Warning") {
                     SettingsGroup {
                         Column(
                             modifier = Modifier
@@ -127,7 +162,7 @@ fun SyncScreen(
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
-                                    text = "Sync Failed",
+                                    text = "Connection Failure",
                                     fontWeight = FontWeight.Bold,
                                     color = StatusRed,
                                     fontSize = 16.sp
@@ -135,7 +170,7 @@ fun SyncScreen(
                             }
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = currentResult.message,
+                                text = errorText,
                                 fontSize = 14.sp,
                                 color = AppleTheme.colors.textPrimary
                             )
@@ -146,7 +181,7 @@ fun SyncScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "⚠️ Guidance: Ensure you are connected to the ESP32 Attendance_Bot Wi-Fi network (http://192.168.4.1). Check that your device Wi-Fi is enabled and connected to the Attendance_Bot AP.",
+                                    text = "⚠️ Guidance: Ensure your phone is connected to the ESP32 Wi-Fi network (http://192.168.4.1/). Verify IP address and cleartext HTTP settings.",
                                     fontSize = 13.sp,
                                     color = StatusRed,
                                     modifier = Modifier.padding(12.dp)
@@ -160,15 +195,13 @@ fun SyncScreen(
 
         item {
             SettingsSection(
-                title = "ESP32 Wi-Fi Endpoint",
-                footer = "Default target endpoint is http://192.168.4.1/download (Attendance_Bot AP)"
+                title = "ESP32 DEVICE CONNECTION",
+                footer = "Default URL is http://192.168.4.1/. URLs are normalized to end with '/'. Do not store teacher PIN."
             ) {
                 SettingsGroup {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "TARGET SERVER URL",
+                            text = "ESP32 BASE URL",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = AppleTheme.colors.textSecondary
@@ -184,8 +217,6 @@ fun SyncScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = AppleTheme.colors.accent,
                                 unfocusedBorderColor = AppleTheme.colors.divider,
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
                                 focusedTextColor = AppleTheme.colors.textPrimary,
                                 unfocusedTextColor = AppleTheme.colors.textPrimary
                             ),
@@ -202,37 +233,60 @@ fun SyncScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        Button(
-                            onClick = {
-                                keyboardController?.hide()
-                                onSyncClick()
-                            },
-                            enabled = !uiState.isSyncing && uiState.esp32Url.isNotBlank(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = ButtonShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = AppleTheme.colors.accent,
-                                contentColor = Color.White
-                            )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (uiState.isSyncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(22.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.5.dp
-                                )
-                                Spacer(modifier = Modifier.size(8.dp))
-                                Text("Syncing with ESP32...", fontWeight = FontWeight.SemiBold)
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Rounded.Refresh,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.size(8.dp))
-                                Text("Sync Attendance", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                            Button(
+                                onClick = {
+                                    keyboardController?.hide()
+                                    onSaveUrlClick(uiState.esp32Url)
+                                },
+                                modifier = Modifier.weight(1f).height(46.dp),
+                                shape = ButtonShape,
+                                colors = ButtonDefaults.buttonColors(containerColor = AppleTheme.colors.accent)
+                            ) {
+                                Text("Save URL", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            Button(
+                                onClick = {
+                                    keyboardController?.hide()
+                                    onConnectClick()
+                                },
+                                enabled = !uiState.isConnecting,
+                                modifier = Modifier.weight(1f).height(46.dp),
+                                shape = ButtonShape,
+                                colors = ButtonDefaults.buttonColors(containerColor = StatusGreen)
+                            ) {
+                                Text("Connect", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedButton(
+                                onClick = onTestConnectionClick,
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = ButtonShape
+                            ) {
+                                Icon(imageVector = Icons.Rounded.NetworkCheck, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Test Connection", fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = onRefreshStatusClick,
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = ButtonShape
+                            ) {
+                                Icon(imageVector = Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Refresh Status", fontSize = 12.sp)
                             }
                         }
                     }
@@ -240,40 +294,81 @@ fun SyncScreen(
             }
         }
 
-        if (currentResult is SyncResult.Success) {
-            item {
-                SettingsSection(title = "Sync Result Summary") {
-                    SettingsGroup {
-                        SettingsRow(
-                            title = "Sync Completed Successfully",
-                            subtitle = "Fetched ${currentResult.totalFetched} records from ESP32",
-                            icon = Icons.Rounded.CheckCircle,
-                            iconBackgroundColor = StatusGreen
-                        )
-                        SettingsDivider()
-                        SettingsRow(
-                            title = "New Records Inserted",
-                            trailingContent = {
-                                Text(
-                                    text = "+${currentResult.insertedCount}",
-                                    fontWeight = FontWeight.Bold,
-                                    color = StatusGreen,
-                                    fontSize = 16.sp
-                                )
+        item {
+            SettingsSection(title = "ATTENDANCE CONTROLS") {
+                SettingsGroup {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Button(
+                                onClick = onRefreshAttendanceClick,
+                                enabled = !uiState.isRefreshing,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = ButtonShape,
+                                colors = ButtonDefaults.buttonColors(containerColor = AppleTheme.colors.accent)
+                            ) {
+                                Icon(imageVector = Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Refresh", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
-                        )
-                        SettingsDivider()
-                        SettingsRow(
-                            title = "Duplicates Skipped",
-                            trailingContent = {
-                                Text(
-                                    text = "${currentResult.skippedCount}",
-                                    fontWeight = FontWeight.Medium,
-                                    color = AppleTheme.colors.textSecondary,
-                                    fontSize = 16.sp
-                                )
+
+                            OutlinedButton(
+                                onClick = { showDownloadConfirmDialog = true },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                            ) {
+                                Icon(imageVector = Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Download CSV", fontSize = 13.sp)
                             }
-                        )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedButton(
+                                onClick = onNavigateToRtc,
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = ButtonShape
+                            ) {
+                                Icon(imageVector = Icons.Rounded.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Set RTC Time", fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = onNavigateToTeacherControls,
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = ButtonShape
+                            ) {
+                                Icon(imageVector = Icons.Rounded.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Teacher Controls", fontSize = 12.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        SettingsDivider(startIndent = 0.dp)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Button(
+                            onClick = { showResetConfirmDialog = true },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = ButtonShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = StatusRed,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(imageVector = Icons.Rounded.DeleteForever, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Clear Attendance for Next Lecture", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
                     }
                 }
             }
@@ -281,42 +376,43 @@ fun SyncScreen(
 
         item {
             SettingsSection(
-                title = "ACTIVE SESSION DOWNLOADS",
-                footer = if (uiState.activeSessionRecords.isNotEmpty()) "Showing ${uiState.activeSessionRecords.size} records downloaded in the active session." else null
+                title = "LIVE ATTENDANCE RECORDS",
+                footer = if (uiState.isShowingCachedData) "Offline cached data — not confirmed live." else null
             ) {
                 SettingsGroup {
-                    if (uiState.activeSessionRecords.isEmpty()) {
+                    val records = uiState.liveRecords
+                    if (records.isEmpty()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(24.dp),
+                                .padding(28.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.CloudDownload,
+                                imageVector = Icons.Rounded.Person,
                                 contentDescription = null,
                                 tint = AppleTheme.colors.textSecondary,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(40.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "No records downloaded in active session",
-                                fontWeight = FontWeight.Medium,
+                                text = "No attendance records found.",
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
                                 color = AppleTheme.colors.textPrimary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Tap 'Sync Attendance' above to fetch records from ESP32.",
+                                text = "Tap 'Refresh Records' to fetch active student submissions.",
                                 fontSize = 13.sp,
                                 color = AppleTheme.colors.textSecondary
                             )
                         }
                     } else {
-                        uiState.activeSessionRecords.forEachIndexed { index, record ->
+                        records.forEachIndexed { index, rec ->
                             SettingsRow(
-                                title = record.studentName,
-                                subtitle = "Roll No: ${record.rollNumber} • Date: ${record.date}",
+                                title = rec.name.ifBlank { "Unknown Student" },
+                                subtitle = "Roll No: ${rec.rollNumber} • Time: ${rec.timestamp} • Device: ${rec.deviceId.ifBlank { uiState.deviceId }}",
                                 icon = Icons.Rounded.Person,
                                 iconBackgroundColor = AppleTheme.colors.accent,
                                 trailingContent = {
@@ -325,7 +421,7 @@ fun SyncScreen(
                                         color = AppleTheme.colors.accent.copy(alpha = 0.12f)
                                     ) {
                                         Text(
-                                            text = "#${index + 1}",
+                                            text = "Roll #${rec.rollNumber}",
                                             fontWeight = FontWeight.Bold,
                                             color = AppleTheme.colors.accent,
                                             fontSize = 12.sp,
@@ -334,7 +430,7 @@ fun SyncScreen(
                                     }
                                 }
                             )
-                            if (index < uiState.activeSessionRecords.size - 1) {
+                            if (index < records.size - 1) {
                                 SettingsDivider(startIndent = 58.dp)
                             }
                         }
@@ -344,27 +440,198 @@ fun SyncScreen(
         }
 
         item {
-            SettingsSection(title = "Navigation & Quick Actions") {
-                SettingsGroup {
-                    SettingsRow(
-                        title = "Yearly Attendance History",
-                        subtitle = "Browse, search, and filter student records",
-                        icon = Icons.Rounded.DateRange,
-                        iconBackgroundColor = AppleTheme.colors.accent,
-                        showChevron = true,
-                        onClick = onNavigateToHistory
-                    )
-                    SettingsDivider()
-                    SettingsRow(
-                        title = "Export Master CSV",
-                        subtitle = "Generate and save complete CSV export",
-                        icon = Icons.Rounded.FileDownload,
-                        iconBackgroundColor = StatusGreen,
-                        showChevron = true,
-                        onClick = onNavigateToExport
+            Surface(
+                shape = ButtonShape,
+                color = AppleTheme.colors.groupedBackground,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Rounded.Info,
+                            contentDescription = null,
+                            tint = AppleTheme.colors.textSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Student Cookie Limitation Notice",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = AppleTheme.colors.textPrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Browser cookies help prevent accidental duplicate submissions, but they are not a secure physical-device identity. Students may bypass this by clearing cookies, using another browser, using private browsing, or using another device.",
+                        fontSize = 12.sp,
+                        color = AppleTheme.colors.textSecondary
                     )
                 }
             }
         }
+    }
+
+    if (showDownloadConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDownloadConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Rounded.Warning,
+                    contentDescription = null,
+                    tint = AppleTheme.colors.statusOrange
+                )
+            },
+            title = { Text("Download Attendance CSV", fontWeight = FontWeight.Bold) },
+            text = { Text("Downloading the CSV will close attendance on this ESP32. Continue?", fontSize = 14.sp) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDownloadConfirmDialog = false
+                        val filename = "attendance_${uiState.deviceId.ifBlank { "CLASSROOM_A" }}.csv"
+                        createDocumentLauncher.launch(filename)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AppleTheme.colors.accent)
+                ) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDownloadConfirmDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showDownloadPinDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDownloadPinDialog = false
+                downloadPinInput = ""
+            },
+            icon = { Icon(imageVector = Icons.Rounded.Lock, contentDescription = null, tint = AppleTheme.colors.accent) },
+            title = { Text("Enter Teacher PIN", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Enter administrator teacher PIN to download CSV:", fontSize = 14.sp, color = AppleTheme.colors.textSecondary)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = downloadPinInput,
+                        onValueChange = { downloadPinInput = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Teacher PIN") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val pin = downloadPinInput
+                        val uri = pendingDownloadUri
+                        showDownloadPinDialog = false
+                        downloadPinInput = ""
+                        pendingDownloadUri = null
+                        if (uri != null) {
+                            onDownloadCsvClick(pin, uri)
+                        }
+                    },
+                    enabled = downloadPinInput.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppleTheme.colors.accent)
+                ) {
+                    Text("Download")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDownloadPinDialog = false
+                        downloadPinInput = ""
+                        pendingDownloadUri = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            icon = { Icon(imageVector = Icons.Rounded.DeleteForever, contentDescription = null, tint = StatusRed) },
+            title = { Text("Clear Attendance for Next Lecture?", fontWeight = FontWeight.Bold, color = StatusRed) },
+            text = {
+                Text(
+                    "This will permanently delete the current attendance records from the ESP32 and reopen attendance for the next lecture. Continue?",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetConfirmDialog = false
+                        showResetPinDialog = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusRed)
+                ) {
+                    Text("Proceed")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showResetConfirmDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showResetPinDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showResetPinDialog = false
+                resetPinInput = ""
+            },
+            icon = { Icon(imageVector = Icons.Rounded.Lock, contentDescription = null, tint = StatusRed) },
+            title = { Text("Enter Teacher PIN to Clear", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Enter administrator teacher PIN to clear current lecture attendance:", fontSize = 14.sp, color = AppleTheme.colors.textSecondary)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = resetPinInput,
+                        onValueChange = { resetPinInput = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Teacher PIN") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val pin = resetPinInput
+                        showResetPinDialog = false
+                        resetPinInput = ""
+                        onResetAttendanceClick(pin)
+                    },
+                    enabled = resetPinInput.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusRed)
+                ) {
+                    Text("Clear Attendance")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showResetPinDialog = false
+                        resetPinInput = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

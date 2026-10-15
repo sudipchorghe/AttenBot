@@ -4,8 +4,10 @@ import com.example.attenbot.data.local.dao.AttendanceDao
 import com.example.attenbot.data.local.entity.AttendanceRecord
 import com.example.attenbot.data.remote.Esp32NetworkClient
 import com.example.attenbot.data.remote.NetworkResult
+import com.example.attenbot.data.remote.model.ApiAttendanceRecord
+import com.example.attenbot.data.remote.model.Esp32Status
+import com.example.attenbot.data.remote.model.ResetAttendanceResponse
 import com.example.attenbot.data.repository.AttendanceRepository
-import com.example.attenbot.data.repository.SyncResult
 import com.example.attenbot.ui.viewmodel.AttendanceViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -50,54 +53,96 @@ class AttendanceViewModelTest {
     @Test
     fun testInitialUiStates() {
         val syncState = viewModel.syncUiState.value
-        assertEquals("http://192.168.4.1/download", syncState.esp32Url)
-        assertFalse(syncState.isSyncing)
-        assertEquals("Ready to Sync", syncState.statusText)
-
-        val exportState = viewModel.exportUiState.value
-        assertFalse(exportState.isExporting)
-        assertEquals(0, exportState.totalRecordsToExport)
+        assertEquals("http://192.168.4.1/", syncState.baseUrl)
+        assertFalse(syncState.isConnecting)
+        assertFalse(syncState.isResetting)
+        assertEquals("Ready", syncState.statusText)
     }
 
     @Test
-    fun testUpdateEsp32Url() {
-        viewModel.updateEsp32Url("http://192.168.1.100/download")
-        assertEquals("http://192.168.1.100/download", viewModel.syncUiState.value.esp32Url)
+    fun testUpdateEsp32Url_normalizesUrl() {
+        viewModel.updateEsp32Url("192.168.4.2/download")
+        assertEquals("http://192.168.4.2/", viewModel.syncUiState.value.baseUrl)
     }
 
     @Test
-    fun testSyncAttendance_Success() = runTest(testDispatcher) {
-        mockNetworkClient.responseToReturn = NetworkResult.Success("101, Alice\n102, Bob")
+    fun testRefreshStatus_Success() = runTest(testDispatcher) {
+        mockNetworkClient.statusResult = NetworkResult.Success(Esp32Status("CLASSROOM_B", false, 15))
 
-        viewModel.syncAttendance(overrideDate = "2026-03-31")
+        viewModel.refreshStatus()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        val syncState = viewModel.syncUiState.value
-        assertFalse(syncState.isSyncing)
-        assertTrue(syncState.isConnected)
-        assertEquals("Success", syncState.statusText)
-        assertTrue(syncState.syncResult is SyncResult.Success)
-
-        val successResult = syncState.syncResult as SyncResult.Success
-        assertEquals(2, successResult.insertedCount)
-        assertEquals(2, successResult.totalFetched)
-        assertEquals(2, syncState.activeSessionRecords.size)
-        assertEquals("Alice", syncState.activeSessionRecords[0].studentName)
-        assertEquals("101", syncState.activeSessionRecords[0].rollNumber)
+        val state = viewModel.syncUiState.value
+        assertFalse(state.isConnecting)
+        assertTrue(state.isConnected)
+        assertEquals("CLASSROOM_B", state.deviceId)
+        assertEquals(15, state.count)
+        assertFalse(state.closed)
+        assertEquals("Attendance OPEN", state.statusText)
     }
 
     @Test
-    fun testSyncAttendance_Failure() = runTest(testDispatcher) {
-        mockNetworkClient.responseToReturn = NetworkResult.Error("Unable to reach Attendance_Bot AP")
+    fun testRefreshAttendance_Success() = runTest(testDispatcher) {
+        val recs = listOf(
+            ApiAttendanceRecord("CLASSROOM_A", "Alice Smith", "101", "2026-10-15 09:42:10")
+        )
+        mockNetworkClient.attendanceResult = NetworkResult.Success(recs)
 
-        viewModel.syncAttendance()
+        viewModel.refreshAttendance()
         testDispatcher.scheduler.advanceUntilIdle()
 
-        val syncState = viewModel.syncUiState.value
-        assertFalse(syncState.isSyncing)
-        assertFalse(syncState.isConnected)
-        assertEquals("Connection Error", syncState.statusText)
-        assertTrue(syncState.syncResult is SyncResult.Error)
+        val state = viewModel.syncUiState.value
+        assertFalse(state.isRefreshing)
+        assertTrue(state.isConnected)
+        assertEquals(1, state.liveRecords.size)
+        assertEquals("Alice Smith", state.liveRecords[0].name)
+    }
+
+    @Test
+    fun testClearAttendanceForNextLecture_Success() = runTest(testDispatcher) {
+        mockNetworkClient.resetResult = NetworkResult.Success(ResetAttendanceResponse(true, "Attendance cleared"))
+        mockNetworkClient.statusResult = NetworkResult.Success(Esp32Status("CLASSROOM_A", false, 0))
+        mockNetworkClient.attendanceResult = NetworkResult.Success(emptyList())
+
+        viewModel.clearAttendanceForNextLecture("2468")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.syncUiState.value
+        assertFalse(state.isResetting)
+        assertEquals(0, state.count)
+        assertTrue(state.liveRecords.isEmpty())
+        assertEquals("Attendance cleared. The ESP32 is ready for the next lecture.", state.successMessage)
+        assertNull(state.errorMessage)
+    }
+
+    @Test
+    fun testClearAttendanceForNextLecture_BlankPin_ShowsError() = runTest(testDispatcher) {
+        viewModel.clearAttendanceForNextLecture("")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.syncUiState.value
+        assertEquals("Invalid teacher PIN.", state.errorMessage)
+    }
+
+    @Test
+    fun testSetRtcTime_Success() = runTest(testDispatcher) {
+        mockNetworkClient.rtcResult = NetworkResult.Success(ResetAttendanceResponse(true, "RTC time updated"))
+
+        viewModel.setRtcTime("2468", "2026-10-15 10:00:00")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.syncUiState.value
+        assertFalse(state.isSettingRtcTime)
+        assertEquals("RTC time updated successfully.", state.successMessage)
+    }
+
+    @Test
+    fun testSetRtcTime_InvalidFormat_ShowsError() = runTest(testDispatcher) {
+        viewModel.setRtcTime("2468", "invalid-datetime")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.syncUiState.value
+        assertEquals("Invalid date/time format. Use YYYY-MM-DD HH:MM:SS.", state.errorMessage)
     }
 
     @Test
@@ -159,10 +204,14 @@ class AttendanceViewModelTest {
     }
 
     private class FakeNetworkClient : Esp32NetworkClient() {
-        var responseToReturn: NetworkResult<String> = NetworkResult.Success("")
+        var statusResult: NetworkResult<Esp32Status> = NetworkResult.Success(Esp32Status("CLASSROOM_A", false, 0))
+        var attendanceResult: NetworkResult<List<ApiAttendanceRecord>> = NetworkResult.Success(emptyList())
+        var resetResult: NetworkResult<ResetAttendanceResponse> = NetworkResult.Success(ResetAttendanceResponse(true, "Success"))
+        var rtcResult: NetworkResult<ResetAttendanceResponse> = NetworkResult.Success(ResetAttendanceResponse(true, "Success"))
 
-        override suspend fun fetchAttendanceCsv(url: String): NetworkResult<String> {
-            return responseToReturn
-        }
+        override suspend fun getStatus(baseUrl: String): NetworkResult<Esp32Status> = statusResult
+        override suspend fun getAttendance(baseUrl: String): NetworkResult<List<ApiAttendanceRecord>> = attendanceResult
+        override suspend fun resetAttendance(baseUrl: String, pin: String): NetworkResult<ResetAttendanceResponse> = resetResult
+        override suspend fun setRtcTime(baseUrl: String, pin: String, datetime: String): NetworkResult<ResetAttendanceResponse> = rtcResult
     }
 }

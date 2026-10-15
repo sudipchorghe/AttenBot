@@ -7,9 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.attenbot"
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.example.attenbot"

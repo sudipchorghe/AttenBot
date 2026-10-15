@@ -9,7 +9,7 @@ import com.example.attenbot.data.local.entity.AttendanceRecord
 
 @Database(
     entities = [AttendanceRecord::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,7 +26,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "attenbot_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
                 INSTANCE = instance
                 instance
             }
