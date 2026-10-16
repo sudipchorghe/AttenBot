@@ -35,7 +35,7 @@ data class AppleSettingsColors(
     val divider: Color,
     val statusGreen: Color = StatusGreen,
     val statusOrange: Color = StatusOrange,
-    val statusRed: Color = StatusRed
+    val statusRed: Color = StatusRed,
 )
 
 val LocalAppleSettingsColors = staticCompositionLocalOf {
@@ -45,6 +45,6 @@ val LocalAppleSettingsColors = staticCompositionLocalOf {
         accent = LightAccent,
         textPrimary = LightTextPrimary,
         textSecondary = LightTextSecondary,
-        divider = LightDivider
+        divider = LightDivider,
     )
 }
