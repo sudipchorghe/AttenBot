@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 // Apple Settings Light Theme Tokens
 val LightPageBackground = Color(0xFFF2F2F7)
 val LightGroupedBackground = Color(0xFFFFFFFF)
-val LightAccent = Color(0xFF007AFF)
+val LightAccent = Color(0xFF0F6F2F)
 val LightTextPrimary = Color(0xFF1C1C1E)
 val LightTextSecondary = Color(0xFF6E6E73)
 val LightDivider = Color(0xFFD1D1D6)
@@ -15,7 +15,7 @@ val LightDivider = Color(0xFFD1D1D6)
 // Apple Settings Dark Theme Tokens
 val DarkPageBackground = Color(0xFF000000)
 val DarkGroupedBackground = Color(0xFF1C1C1E)
-val DarkAccent = Color(0xFF0A84FF)
+val DarkAccent = Color(0xFF0F6F2F)
 val DarkTextPrimary = Color(0xFFF5F5F7)
 val DarkTextSecondary = Color(0xFFA1A1A6)
 val DarkDivider = Color(0xFF38383A)

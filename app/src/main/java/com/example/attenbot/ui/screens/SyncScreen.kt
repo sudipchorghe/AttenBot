@@ -89,7 +89,7 @@ fun SyncScreen(
     var showDownloadConfirmDialog by remember { mutableStateOf(false) }
     var showDownloadPinDialog by remember { mutableStateOf(false) }
     var downloadPinInput by remember { mutableStateOf("") }
-    var pendingDownloadUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingDownloadPin by remember { mutableStateOf<String?>(null) }
 
     var showResetConfirmDialog by remember { mutableStateOf(false) }
     var showResetPinDialog by remember { mutableStateOf(false) }
@@ -98,9 +98,10 @@ fun SyncScreen(
     val createDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri: Uri? ->
-        if (uri != null) {
-            pendingDownloadUri = uri
-            showDownloadPinDialog = true
+        val pin = pendingDownloadPin
+        pendingDownloadPin = null
+        if (uri != null && !pin.isNullOrBlank()) {
+            onDownloadCsvClick(pin, uri)
         }
     }
 
@@ -488,8 +489,7 @@ fun SyncScreen(
                 Button(
                     onClick = {
                         showDownloadConfirmDialog = false
-                        val filename = "attendance_${uiState.deviceId.ifBlank { "CLASSROOM_A" }}.csv"
-                        createDocumentLauncher.launch(filename)
+                        showDownloadPinDialog = true
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AppleTheme.colors.accent)
                 ) {
@@ -529,18 +529,16 @@ fun SyncScreen(
                 Button(
                     onClick = {
                         val pin = downloadPinInput
-                        val uri = pendingDownloadUri
                         showDownloadPinDialog = false
                         downloadPinInput = ""
-                        pendingDownloadUri = null
-                        if (uri != null) {
-                            onDownloadCsvClick(pin, uri)
-                        }
+                        pendingDownloadPin = pin
+                        val filename = "attendance_${uiState.deviceId.ifBlank { "CLASSROOM_A" }}.csv"
+                        createDocumentLauncher.launch(filename)
                     },
                     enabled = downloadPinInput.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = AppleTheme.colors.accent)
                 ) {
-                    Text("Download")
+                    Text("Authorize & Save")
                 }
             },
             dismissButton = {
@@ -548,7 +546,6 @@ fun SyncScreen(
                     onClick = {
                         showDownloadPinDialog = false
                         downloadPinInput = ""
-                        pendingDownloadUri = null
                     }
                 ) {
                     Text("Cancel")

@@ -1,5 +1,6 @@
 package com.example.attenbot.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,7 +54,8 @@ fun AppNavigation(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var currentRoute by rememberSaveable { mutableStateOf(AppDestination.ROUTE_SYNC) }
+    var backStack by rememberSaveable { mutableStateOf(listOf(AppDestination.ROUTE_SYNC)) }
+    val currentRoute = backStack.lastOrNull() ?: AppDestination.ROUTE_SYNC
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -60,6 +63,26 @@ fun AppNavigation(
     val syncUiState by viewModel.syncUiState.collectAsState()
     val diagnosticsState by viewModel.diagnosticsState.collectAsState()
     val historyUiState by viewModel.historyUiState.collectAsState()
+
+    val isDrawerOpen = drawerState.isOpen
+    val canGoBack = backStack.size > 1
+
+    BackHandler(enabled = isDrawerOpen || canGoBack) {
+        if (drawerState.isOpen) {
+            scope.launch { drawerState.close() }
+        } else if (backStack.size > 1) {
+            backStack = backStack.dropLast(1)
+        }
+    }
+
+    fun navigateTo(route: String) {
+        scope.launch { drawerState.close() }
+        if (route == AppDestination.ROUTE_SYNC) {
+            backStack = listOf(AppDestination.ROUTE_SYNC)
+        } else if (backStack.lastOrNull() != route) {
+            backStack = backStack + route
+        }
+    }
 
     val currentDestination = when (currentRoute) {
         AppDestination.ROUTE_TEACHER -> AppDestination.Teacher
@@ -95,10 +118,7 @@ fun AppNavigation(
                     NavigationDrawerItem(
                         label = { Text("Live Sync Dashboard", fontWeight = FontWeight.SemiBold) },
                         selected = currentRoute == AppDestination.ROUTE_SYNC,
-                        onClick = {
-                            scope.launch { drawerState.close() }
-                            currentRoute = AppDestination.ROUTE_SYNC
-                        },
+                        onClick = { navigateTo(AppDestination.ROUTE_SYNC) },
                         icon = { Icon(AppDestination.Sync.icon, contentDescription = null) },
                         colors = NavigationDrawerItemDefaults.colors(
                             selectedContainerColor = AppleTheme.colors.accent.copy(alpha = 0.15f),
@@ -113,10 +133,7 @@ fun AppNavigation(
                         NavigationDrawerItem(
                             label = { Text(destination.title) },
                             selected = currentRoute == destination.route,
-                            onClick = {
-                                scope.launch { drawerState.close() }
-                                currentRoute = destination.route
-                            },
+                            onClick = { navigateTo(destination.route) },
                             icon = { Icon(destination.icon, contentDescription = null) },
                             colors = NavigationDrawerItemDefaults.colors(
                                 selectedContainerColor = AppleTheme.colors.accent.copy(alpha = 0.15f),
@@ -144,12 +161,22 @@ fun AppNavigation(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(
-                                imageVector = Icons.Rounded.Menu,
-                                contentDescription = "Open Navigation Menu",
-                                tint = AppleTheme.colors.textPrimary
-                            )
+                        if (canGoBack) {
+                            IconButton(onClick = { backStack = backStack.dropLast(1) }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = "Navigate Back",
+                                    tint = AppleTheme.colors.textPrimary
+                                )
+                            }
+                        } else {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Menu,
+                                    contentDescription = "Open Navigation Menu",
+                                    tint = AppleTheme.colors.textPrimary
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -182,8 +209,8 @@ fun AppNavigation(
                                     viewModel.downloadCsv(pin, uri, context.contentResolver)
                                 },
                                 onResetAttendanceClick = viewModel::clearAttendanceForNextLecture,
-                                onNavigateToTeacherControls = { currentRoute = AppDestination.ROUTE_TEACHER },
-                                onNavigateToRtc = { currentRoute = AppDestination.ROUTE_RTC }
+                                onNavigateToTeacherControls = { navigateTo(AppDestination.ROUTE_TEACHER) },
+                                onNavigateToRtc = { navigateTo(AppDestination.ROUTE_RTC) }
                             )
                         }
                         AppDestination.Teacher -> {
@@ -193,7 +220,7 @@ fun AppNavigation(
                                     viewModel.downloadCsv(pin, uri, context.contentResolver)
                                 },
                                 onResetAttendanceClick = viewModel::clearAttendanceForNextLecture,
-                                onNavigateToRtc = { currentRoute = AppDestination.ROUTE_RTC },
+                                onNavigateToRtc = { navigateTo(AppDestination.ROUTE_RTC) },
                                 onClearMessages = viewModel::clearMessages
                             )
                         }

@@ -4,6 +4,7 @@ build/
 /captures
 .externalNativeBuild
 .cxx
+/app/release/
 
 # IDE
 .idea/
@@ -14,6 +15,7 @@ build/
 local.properties
 
 # Tools / OS
+
 .agent/
 .DS_Store
 *.log

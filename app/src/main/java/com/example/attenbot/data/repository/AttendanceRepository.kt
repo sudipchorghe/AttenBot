@@ -87,10 +87,22 @@ class AttendanceRepository(
             is NetworkResult.Success -> {
                 val body = streamResult.data
                 try {
+                    val bytes = body.bytes()
+                    val contentString = String(bytes, Charsets.UTF_8).trim()
+
+                    // Inspect response content for PIN validation failure / error responses
+                    if (contentString.contains("Invalid teacher PIN", ignoreCase = true) ||
+                        contentString.contains("Invalid PIN", ignoreCase = true) ||
+                        contentString.contains("Unauthorized", ignoreCase = true) ||
+                        contentString.contains("\"success\":false", ignoreCase = true) ||
+                        contentString.contains("\"success\": false", ignoreCase = true) ||
+                        contentString.startsWith("Error", ignoreCase = true)
+                    ) {
+                        return@withContext NetworkResult.Error("Invalid teacher PIN.")
+                    }
+
                     contentResolver.openOutputStream(destinationUri)?.use { outputStream ->
-                        body.byteStream().use { inputStream ->
-                            inputStream.copyTo(outputStream)
-                        }
+                        outputStream.write(bytes)
                     } ?: return@withContext NetworkResult.Error("Failed to open output stream for selected document URI.")
                     NetworkResult.Success(Unit)
                 } catch (e: Exception) {
