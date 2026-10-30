@@ -3,6 +3,9 @@
 **Offline classroom attendance, no internet and no server needed.**
 
 AttenBot is an ESP32-based attendance tracker with an Android companion app. Students mark attendance by connecting to the ESP32's own Wi-Fi network, and the teacher uses the app to download, store and review the records.
+<img width="1080" height="2400" alt="Screenshot_20261030_164450" src="https://github.com/user-attachments/assets/9dca8c02-0299-40a3-9cca-86c75e27cc3a" />
+<img width="1080" height="2400" alt="Screenshot_20261030_164501" src="https://github.com/user-attachments/assets/9ee494ef-78ae-4bc1-ad75-81f70a46ad55" />
+<img width="1080" height="2400" alt="Screenshot_20261030_164437" src="https://github.com/user-attachments/assets/b84d26bf-9c51-4628-a531-ee0c7415e187" />
 
 
 
