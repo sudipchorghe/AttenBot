@@ -1,260 +1,68 @@
 package com.example.attenbot.ui.navigation
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.attenbot.ui.screens.HelpScreen
-import com.example.attenbot.ui.screens.HistoryScreen
-import com.example.attenbot.ui.screens.RtcTimeScreen
-import com.example.attenbot.ui.screens.SyncScreen
-import com.example.attenbot.ui.screens.TeacherControlsScreen
-import com.example.attenbot.ui.screens.TroubleshootingScreen
-import com.example.attenbot.ui.theme.AppleTheme
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.attenbot.ui.screens.FocusApp
 import com.example.attenbot.ui.viewmodel.AttendanceViewModel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Only two pages. Old screen files may stay in the project; they are no longer routed. */
 @Composable
-fun AppNavigation(
-    viewModel: AttendanceViewModel,
-    modifier: Modifier = Modifier,
-) {
+fun AppNavigation(viewModel: AttendanceViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var backStack by rememberSaveable { mutableStateOf(listOf(AppDestination.ROUTE_SYNC)) }
-    val currentRoute = backStack.lastOrNull() ?: AppDestination.ROUTE_SYNC
-
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-
-    val syncUiState by viewModel.syncUiState.collectAsState()
-    val diagnosticsState by viewModel.diagnosticsState.collectAsState()
-    val historyUiState by viewModel.historyUiState.collectAsState()
-
-    val isDrawerOpen = drawerState.isOpen
-    val canGoBack = backStack.size > 1
-
-    BackHandler(enabled = isDrawerOpen || canGoBack) {
-        if (drawerState.isOpen) {
-            scope.launch { drawerState.close() }
-        } else if (backStack.size > 1) {
-            backStack = backStack.dropLast(1)
-        }
-    }
-
-    fun navigateTo(route: String) {
-        scope.launch { drawerState.close() }
-        if (route == AppDestination.ROUTE_SYNC) {
-            backStack = listOf(AppDestination.ROUTE_SYNC)
-        } else if (backStack.lastOrNull() != route) {
-            backStack = backStack + route
-        }
-    }
-
-    val currentDestination = when (currentRoute) {
-        AppDestination.ROUTE_TEACHER -> AppDestination.Teacher
-        AppDestination.ROUTE_RTC -> AppDestination.RtcTime
-        AppDestination.ROUTE_TROUBLESHOOTING -> AppDestination.Troubleshooting
-        AppDestination.ROUTE_HELP -> AppDestination.Help
-        AppDestination.ROUTE_HISTORY -> AppDestination.History
-        else -> AppDestination.Sync
-    }
-
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                drawerContainerColor = AppleTheme.colors.groupedBackground,
-                drawerContentColor = AppleTheme.colors.textPrimary
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(16.dp)
-                ) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "AttenBot Menu",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AppleTheme.colors.accent,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    NavigationDrawerItem(
-                        label = { Text("Live Sync Dashboard", fontWeight = FontWeight.SemiBold) },
-                        selected = currentRoute == AppDestination.ROUTE_SYNC,
-                        onClick = { navigateTo(AppDestination.ROUTE_SYNC) },
-                        icon = { Icon(AppDestination.Sync.icon, contentDescription = null) },
-                        colors = NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = AppleTheme.colors.accent.copy(alpha = 0.15f),
-                            selectedTextColor = AppleTheme.colors.accent,
-                            selectedIconColor = AppleTheme.colors.accent
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    AppDestination.drawerEntries.forEach { destination ->
-                        NavigationDrawerItem(
-                            label = { Text(destination.title) },
-                            selected = currentRoute == destination.route,
-                            onClick = { navigateTo(destination.route) },
-                            icon = { Icon(destination.icon, contentDescription = null) },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = AppleTheme.colors.accent.copy(alpha = 0.15f),
-                                selectedTextColor = AppleTheme.colors.accent,
-                                selectedIconColor = AppleTheme.colors.accent
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                    }
+    val preferences = remember { context.getSharedPreferences("attenbot_focus", Context.MODE_PRIVATE) }
+    var settings by rememberSaveable { mutableStateOf(false) }
+    var className by remember { mutableStateOf(preferences.getString("class", "TE5K-B") ?: "TE5K-B") }
+    var room by remember { mutableStateOf(preferences.getString("room", "") ?: "") }
+    var total by remember { mutableIntStateOf(preferences.getInt("total", 64).coerceAtLeast(1)) }
+    var autoSync by remember { mutableStateOf(preferences.getBoolean("auto_sync", true)) }
+    val state by viewModel.syncUiState.collectAsStateWithLifecycle()
+    val diagnostics by viewModel.diagnosticsState.collectAsStateWithLifecycle()
+    val history by viewModel.historyUiState.collectAsStateWithLifecycle()
+    val export by viewModel.exportUiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val latest by rememberUpdatedState(state)
+    // Never use the legacy /download endpoint for polling: it can close attendance.
+    // Wait for both requests to finish before the next interval and pause in background.
+    LaunchedEffect(lifecycleOwner, autoSync, state.baseUrl) {
+        if (autoSync) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                val current = latest
+                if (!current.isConnecting && !current.isRefreshing && !current.isDownloading &&
+                    !current.isResetting && !current.isSettingRtcTime) {
+                    viewModel.refreshAll()
                 }
-            }
-        }
-    ) {
-        Scaffold(
-            modifier = modifier.fillMaxSize(),
-            containerColor = AppleTheme.colors.pageBackground,
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = currentDestination.title,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = AppleTheme.colors.textPrimary
-                        )
-                    },
-                    navigationIcon = {
-                        if (canGoBack) {
-                            IconButton(onClick = { backStack = backStack.dropLast(1) }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                    contentDescription = "Navigate Back",
-                                    tint = AppleTheme.colors.textPrimary
-                                )
-                            }
-                        } else {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Menu,
-                                    contentDescription = "Open Navigation Menu",
-                                    tint = AppleTheme.colors.textPrimary
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = AppleTheme.colors.groupedBackground
-                    )
-                )
-            }
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                Crossfade(
-                    targetState = currentDestination,
-                    modifier = Modifier.fillMaxSize(),
-                    label = "ScreenTransition"
-                ) { destination ->
-                    when (destination) {
-                        AppDestination.Sync -> {
-                            SyncScreen(
-                                uiState = syncUiState,
-                                onUrlChange = viewModel::updateEsp32Url,
-                                onSaveUrlClick = viewModel::saveBaseUrl,
-                                onConnectClick = viewModel::connectToDevice,
-                                onTestConnectionClick = viewModel::testConnection,
-                                onRefreshStatusClick = viewModel::refreshStatus,
-                                onRefreshAttendanceClick = viewModel::refreshAttendance,
-                                onDownloadCsvClick = { pin, uri ->
-                                    viewModel.downloadCsv(pin, uri, context.contentResolver)
-                                },
-                                onResetAttendanceClick = viewModel::clearAttendanceForNextLecture,
-                                onNavigateToTeacherControls = { navigateTo(AppDestination.ROUTE_TEACHER) },
-                                onNavigateToRtc = { navigateTo(AppDestination.ROUTE_RTC) }
-                            )
-                        }
-                        AppDestination.Teacher -> {
-                            TeacherControlsScreen(
-                                uiState = syncUiState,
-                                onDownloadCsvClick = { pin, uri ->
-                                    viewModel.downloadCsv(pin, uri, context.contentResolver)
-                                },
-                                onResetAttendanceClick = viewModel::clearAttendanceForNextLecture,
-                                onNavigateToRtc = { navigateTo(AppDestination.ROUTE_RTC) },
-                                onClearMessages = viewModel::clearMessages
-                            )
-                        }
-                        AppDestination.RtcTime -> {
-                            RtcTimeScreen(
-                                uiState = syncUiState,
-                                onSetRtcTimeClick = viewModel::setRtcTime
-                            )
-                        }
-                        AppDestination.Troubleshooting -> {
-                            TroubleshootingScreen(
-                                syncState = syncUiState,
-                                diagnosticsState = diagnosticsState,
-                                onTestStatusEndpoint = viewModel::refreshStatus,
-                                onTestAttendanceEndpoint = viewModel::refreshAttendance
-                            )
-                        }
-                        AppDestination.Help -> {
-                            HelpScreen(
-                                uiState = syncUiState,
-                                onUrlChange = viewModel::updateEsp32Url,
-                                onSaveUrlClick = viewModel::saveBaseUrl
-                            )
-                        }
-                        AppDestination.History -> {
-                            HistoryScreen(
-                                uiState = historyUiState,
-                                onSearchQueryChange = viewModel::onSearchQueryChange,
-                                onYearFilterChange = viewModel::onYearFilterChange
-                            )
-                        }
-                    }
-                }
+                delay(15_000)
             }
         }
     }
+    BackHandler(settings) { settings = false }
+    FocusApp(
+        state = state, diagnostics = diagnostics, history = history, export = export,
+        settings = settings, onSettings = { settings = it },
+        className = className, room = room, total = total, autoSync = autoSync,
+        onProfile = { newClass, newRoom, newTotal ->
+            className = newClass; room = newRoom; total = newTotal
+            preferences.edit().putString("class", newClass).putString("room", newRoom)
+                .putInt("total", newTotal).apply()
+        },
+        onAutoSync = { autoSync = it; preferences.edit().putBoolean("auto_sync", it).apply() },
+        onSaveUrl = viewModel::saveBaseUrl,
+        onRefresh = viewModel::refreshAll,
+        onDownload = { pin, uri -> viewModel.downloadCsv(pin, uri, context.contentResolver) },
+        onReset = viewModel::clearAttendanceForNextLecture,
+        onClock = viewModel::setRtcTime,
+        onSearch = viewModel::onSearchQueryChange,
+        onExportHistory = { uri -> viewModel.exportMasterCsv(context, uri) },
+        onClearMessages = viewModel::clearMessages,
+        modifier = modifier
+    )
 }

@@ -5,10 +5,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
-val GroupedContainerShape = RoundedCornerShape(10.dp)
-val ButtonShape = RoundedCornerShape(10.dp)
+val GroupedContainerShape = RoundedCornerShape(22.dp)
+val ButtonShape = RoundedCornerShape(22.dp)
 val PillShape = CircleShape
-val IconBoxShape = RoundedCornerShape(10.dp)
+val IconBoxShape = RoundedCornerShape(22.dp)
 
 val Shapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),

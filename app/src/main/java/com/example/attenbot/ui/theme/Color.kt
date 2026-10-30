@@ -13,12 +13,12 @@ val LightTextSecondary = Color(0xFF6E6E73)
 val LightDivider = Color(0xFFD1D1D6)
 
 // Apple Settings Dark Theme Tokens
-val DarkPageBackground = Color(0xFF000000)
-val DarkGroupedBackground = Color(0xFF1C1C1E)
-val DarkAccent = Color(0xFF0F6F2F)
-val DarkTextPrimary = Color(0xFFF5F5F7)
-val DarkTextSecondary = Color(0xFFA1A1A6)
-val DarkDivider = Color(0xFF38383A)
+val DarkPageBackground = Color(0xFF101713)
+val DarkGroupedBackground = Color(0xFF1B251F)
+val DarkAccent = Color(0xFF9CE5BF)
+val DarkTextPrimary = Color(0xFFEEF5F0)
+val DarkTextSecondary = Color(0xFFA4B6AA)
+val DarkDivider = Color(0xFF34433A)
 
 // Status Color Tokens
 val StatusGreen = Color(0xFF34C759)

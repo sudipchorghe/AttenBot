@@ -1,7 +1,6 @@
 package com.example.attenbot.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -46,13 +45,22 @@ private val LightColorScheme = lightColorScheme(
 
 private val DarkColorScheme = darkColorScheme(
     primary = DarkAccent,
-    onPrimary = Color.White,
+    onPrimary = Color(0xFF082C1B),
     background = DarkPageBackground,
     onBackground = DarkTextPrimary,
     surface = DarkGroupedBackground,
     onSurface = DarkTextPrimary,
     surfaceContainer = DarkGroupedBackground,
     onSurfaceVariant = DarkTextSecondary,
+    outline = DarkDivider,
+    secondary = DarkAccent,
+    onSecondary = Color(0xFF082C1B),
+    primaryContainer = Color(0xFF253E2E),
+    onPrimaryContainer = DarkTextPrimary,
+    surfaceVariant = Color(0xFF253E2E),
+    surfaceContainerHigh = DarkGroupedBackground,
+    surfaceContainerHighest = DarkGroupedBackground,
+    error = Color(0xFFFFB4AB),
     outlineVariant = DarkDivider
 )
 
@@ -65,7 +73,7 @@ object AppleTheme {
 
 @Composable
 fun AttenBotTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val appleColors = if (darkTheme) DarkAppleColors else LightAppleColors
