@@ -15,15 +15,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Settings
@@ -60,11 +64,15 @@ import com.example.attenbot.ui.state.DiagnosticsState
 import com.example.attenbot.ui.state.ExportUiState
 import com.example.attenbot.ui.state.HistoryUiState
 import com.example.attenbot.ui.state.SyncUiState
+import com.example.attenbot.ui.theme.StatusGreen
+import com.example.attenbot.ui.theme.StatusRed
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.ResolverStyle
 import kotlin.math.roundToInt
+
+enum class FocusPage { Attendance, Settings, History }
 
 private val Subtitle = Color(0xFFA4B6AA)
 private val Pill = Color(0xFF253E2E)
@@ -75,8 +83,8 @@ fun FocusApp(
     diagnostics: DiagnosticsState,
     history: HistoryUiState,
     export: ExportUiState,
-    settings: Boolean,
-    onSettings: (Boolean) -> Unit,
+    page: FocusPage,
+    onPageChange: (FocusPage) -> Unit,
     className: String,
     room: String,
     total: Int,
@@ -93,6 +101,7 @@ fun FocusApp(
     onClearMessages: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val settings = page == FocusPage.Settings
     var expanded by remember { mutableStateOf("") }
     var showStudents by remember { mutableStateOf(false) }
     var action by remember { mutableStateOf<String?>(null) }
@@ -124,16 +133,11 @@ fun FocusApp(
         uri?.let { onDownload(pendingDownloadPin, it) }
     }
 
-    val historyDownload = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        uri?.let { onExportHistory(it) }
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .safeDrawingPadding()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
@@ -144,19 +148,49 @@ fun FocusApp(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = if (settings) "Settings & Tools" else "Attendance Focus",
+                    text = when (page) {
+                        FocusPage.Attendance -> "Attendance Focus"
+                        FocusPage.Settings -> "Settings & Tools"
+                        FocusPage.History -> "Attendance History"
+                    },
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = if (room.isBlank()) className else "$className · $room",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(8.dp),
+                        shape = CircleShape,
+                        color = if (verified) StatusGreen else StatusRed
+                    ) {}
+                    Text(
+                        text = if (verified) "ESP32 connected" else "ESP32 disconnected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            IconButton(onClick = { onSettings(!settings) }) {
+            IconButton(onClick = {
+                onPageChange(if (page == FocusPage.History) FocusPage.Attendance else FocusPage.History)
+            }) {
+                Icon(
+                    imageVector = if (page == FocusPage.History) Icons.Rounded.Close else Icons.Rounded.History,
+                    contentDescription = if (page == FocusPage.History) "Close attendance history" else "Attendance history"
+                )
+            }
+            IconButton(onClick = {
+                onPageChange(if (settings) FocusPage.Attendance else FocusPage.Settings)
+            }) {
                 Icon(
                     imageVector = if (settings) Icons.Rounded.Close else Icons.Rounded.Settings,
                     contentDescription = if (settings) "Close Settings" else "Settings"
@@ -164,150 +198,136 @@ fun FocusApp(
             }
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (!settings) {
-                item {
-                    FocusCard {
-                        Text(
-                            if (room.isBlank()) className else "$className · $room",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            val countSize = if (maxWidth < 300.dp) 62.sp else 88.sp
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(if (verified) state.count.toString() else "—", fontSize = countSize, fontWeight = FontWeight.ExtraBold, letterSpacing = (-3).sp)
-                                Text(" / $total", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 12.dp))
-                            }
-                        }
-                        Text("students present this session", color = Subtitle)
-                        Spacer(Modifier.height(22.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            StatPill(if (verified) "${(total - state.count).coerceAtLeast(0)} not marked" else "— not marked", Modifier.weight(1f))
-                            StatPill(if (verified) "${(state.count * 100f / total).roundToInt()}% present" else "—% present", Modifier.weight(1f))
-                        }
-                        if (state.count > total) Text("Device count exceeds class size. Update the total in Settings.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                item {
-                    FocusCard {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.primary)
-                            Text(when {
-                                state.isConnecting || state.isRefreshing -> "Updating…"
-                                state.lastConnectionTime == null -> "Not connected yet"
-                                state.isConnected -> "Connected"
-                                else -> "Disconnected"
-                            }, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Text("Last synced: ${state.lastSyncTime ?: "Never"}", Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        Text(if (autoSync) "Auto-sync ON · every 15 seconds while open" else "Auto-sync OFF · enable in Settings", Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        Button(
-                            onClick = onRefresh,
-                            enabled = !busy,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                            shape = RoundedCornerShape(18.dp)
-                        ) {
-                            Icon(Icons.Rounded.Sync, contentDescription = null)
-                            Spacer(Modifier.width(10.dp))
+        if (page == FocusPage.History) {
+            AttendanceHistoryScreen(history, export, onSearch, onExportHistory)
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (!settings) {
+                    item {
+                        FocusCard {
                             Text(
-                                text = if (state.isConnecting || state.isRefreshing) "Syncing…" else "Sync Now",
-                                fontWeight = FontWeight.Bold
+                                if (room.isBlank()) className else "$className · $room",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 15.sp, lineHeight = 20.sp)
                             )
-                        }
-                    }
-                }
-                item {
-                    Button(onClick = { openAction("download") }, enabled = !busy,
-                        modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth().heightIn(min = 68.dp), shape = RoundedCornerShape(22.dp)) {
-                        Icon(Icons.Rounded.Download, null)
-                        Spacer(Modifier.width(10.dp))
-                        Text(if (state.isDownloading) "Downloading…" else "Download Attendance", fontWeight = FontWeight.Bold)
-                    }
-                }
-                item {
-                    ExpandSection("Current attendance", "${state.liveRecords.size} records from the device", showStudents, { showStudents = !showStudents }) {
-                        if (state.liveRecords.isEmpty()) Text("No records received yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        else Text("Expand to review students in this session.", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                if (showStudents) {
-                    items(state.liveRecords) { student ->
-                        FocusCard {
-                            Text("${student.rollNumber} · ${student.name}", Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
-                            Text(student.timestamp, Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            } else {
-                item { Text("Your classroom, device and attendance tools", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                item {
-                    ExpandSection("Classroom", "Class name, room and student total", expanded == "Classroom", { expanded = if (expanded == "Classroom") "" else "Classroom" }) {
-                        var nameDraft by remember(className) { mutableStateOf(className) }
-                        var roomDraft by remember(room) { mutableStateOf(room) }
-                        var totalDraft by remember(total) { mutableStateOf(total.toString()) }
-                        Field(nameDraft, { nameDraft = it }, "Class name")
-                        Field(roomDraft, { roomDraft = it }, "Room number")
-                        OutlinedTextField(totalDraft, { totalDraft = it.filter(Char::isDigit).take(4) }, label = { Text("Total students") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
-                        Button(onClick = { onProfile(nameDraft.trim(), roomDraft.trim(), totalDraft.toInt()); expanded = "" }, enabled = nameDraft.isNotBlank() && (totalDraft.toIntOrNull() ?: 0) > 0) { Text("Save classroom") }
-                        Text("These are local display settings; they do not change the ESP32 roster.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                item {
-                    ExpandSection("Connection", "Device address and automatic sync", expanded == "Connection", { expanded = if (expanded == "Connection") "" else "Connection" }) {
-                        var url by remember(state.esp32Url) { mutableStateOf(state.esp32Url) }
-                        Field(url, { url = it }, "ESP32 URL")
-                        Button(onClick = { onSaveUrl(url.trim()); onRefresh() }, enabled = url.isNotBlank() && !busy) { Text("Save & connect") }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Auto-sync", fontWeight = FontWeight.SemiBold)
-                                Text("Refresh every 15 seconds while open", style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(4.dp))
+                            BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                val countSize = if (maxWidth < 300.dp) 62.sp else 88.sp
+                                Row(verticalAlignment = Alignment.Bottom) {
+                                    Text(if (verified) state.count.toString() else "—", fontSize = countSize, fontWeight = FontWeight.ExtraBold, letterSpacing = (-3).sp)
+                                    Text(" / $total", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 12.dp))
+                                }
                             }
-                            Switch(autoSync, onCheckedChange = onAutoSync)
+                            Text("students present this session", color = Subtitle)
+                            Spacer(Modifier.height(22.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                StatPill(if (verified) "${(total - state.count).coerceAtLeast(0)} not marked" else "— not marked", Modifier.weight(1f))
+                                StatPill(if (verified) "${(state.count * 100f / total).roundToInt()}% present" else "—% present", Modifier.weight(1f))
+                            }
+                            if (state.count > total) Text("Device count exceeds class size. Update the total in Settings.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
-                        Text("Connect your phone to the Attendance_Bot Wi-Fi network first.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                }
-                item {
-                    ExpandSection("Teacher controls", "Start the next lecture and set the clock", expanded == "Teacher controls", { expanded = if (expanded == "Teacher controls") "" else "Teacher controls" }) {
-                        OutlinedButton(onClick = { openAction("clock") }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Set ESP32 clock") }
-                        OutlinedButton(onClick = { openAction("reset") }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear attendance / next lecture") }
-                        Text("Teacher PIN required. Download the current session before clearing it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                item {
-                    ExpandSection("Attendance history", "Search saved records and export", expanded == "Attendance history", { expanded = if (expanded == "Attendance history") "" else "Attendance history" }) {
-                        Field(history.searchQuery, onSearch, "Search name or roll number")
-                        Text("${history.records.size} matching records")
-                        Button(onClick = { historyDownload.launch("AttenBot_History_${LocalDate.now()}.csv") }, enabled = !export.isExporting) { Text(if (export.isExporting) "Exporting…" else "Export all saved history") }
-                        export.exportSuccessMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-                        export.exportErrorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                        if (history.records.isEmpty()) Text("No saved records match your search.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (expanded == "Attendance history") {
-                    items(history.records) { record ->
+                    item {
                         FocusCard {
-                            Text("${record.rollNumber} · ${record.studentName}", Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
-                            Text("${record.date} · ${record.deviceId}", Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(Icons.Rounded.Wifi, null, tint = MaterialTheme.colorScheme.primary)
+                                Text(when {
+                                    state.isConnecting || state.isRefreshing -> "Updating…"
+                                    state.lastConnectionTime == null -> "Not connected yet"
+                                    state.isConnected -> "Connected"
+                                    else -> "Disconnected"
+                                }, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text("Last synced: ${state.lastSyncTime ?: "Never"}", Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            Text(if (autoSync) "Auto-sync ON · every 15 seconds while open" else "Auto-sync OFF · enable in Settings", Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                            Button(
+                                onClick = onRefresh,
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                                shape = RoundedCornerShape(18.dp)
+                            ) {
+                                Icon(Icons.Rounded.Sync, contentDescription = null)
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = if (state.isConnecting || state.isRefreshing) "Syncing…" else "Sync Now",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                }
-                item {
-                    ExpandSection("Diagnostics & help", "Connection details and troubleshooting", expanded == "Diagnostics & help", { expanded = if (expanded == "Diagnostics & help") "" else "Diagnostics & help" }) {
-                        Text("Device: ${if (state.lastConnectionTime == null) "Not verified" else state.deviceId}")
-                        Text("Last request: ${diagnostics.lastRequestType ?: "None"}")
-                        Text("Response time: ${diagnostics.responseTimeMs?.let { "$it ms" } ?: "—"}")
-                        Text("Last success: ${diagnostics.lastSuccessTime ?: "Never"}")
-                        diagnostics.lastErrorDetail?.let { Text("Last recorded error: $it", color = MaterialTheme.colorScheme.error) }
-                        OutlinedButton(onClick = onRefresh, enabled = !busy) { Text("Test connection") }
-                        Text("1. Join Attendance_Bot Wi-Fi.\n2. Confirm the device address under Connection.\n3. Keep this app open for automatic updates.\n4. If time is incorrect, set the clock under Teacher controls.\n\nDownloading a session closes attendance on the existing firmware. History export only exports records already saved on this phone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    item {
+                        Button(onClick = { openAction("download") }, enabled = !busy,
+                            modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth().heightIn(min = 68.dp), shape = RoundedCornerShape(22.dp)) {
+                            Icon(Icons.Rounded.Download, null)
+                            Spacer(Modifier.width(10.dp))
+                            Text(if (state.isDownloading) "Downloading…" else "Download Attendance", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    item {
+                        ExpandSection("Current attendance", "${state.liveRecords.size} records from the device", showStudents, { showStudents = !showStudents }) {
+                            if (state.liveRecords.isEmpty()) Text("No records received yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            else Text("Expand to review students in this session.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (showStudents) {
+                        items(state.liveRecords) { student ->
+                            FocusCard {
+                                Text("${student.rollNumber} · ${student.name}", Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
+                                Text(student.timestamp, Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                } else {
+                    item { Text("Your classroom, device and attendance tools", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    item {
+                        ExpandSection("Classroom", "Class name, room and student total", expanded == "Classroom", { expanded = if (expanded == "Classroom") "" else "Classroom" }) {
+                            var nameDraft by remember(className) { mutableStateOf(className) }
+                            var roomDraft by remember(room) { mutableStateOf(room) }
+                            var totalDraft by remember(total) { mutableStateOf(total.toString()) }
+                            Field(nameDraft, { nameDraft = it }, "Class name")
+                            Field(roomDraft, { roomDraft = it }, "Room number")
+                            OutlinedTextField(totalDraft, { totalDraft = it.filter(Char::isDigit).take(4) }, label = { Text("Total students") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
+                            Button(onClick = { onProfile(nameDraft.trim(), roomDraft.trim(), totalDraft.toInt()); expanded = "" }, enabled = nameDraft.isNotBlank() && (totalDraft.toIntOrNull() ?: 0) > 0) { Text("Save classroom") }
+                            Text("These are local display settings; they do not change the ESP32 roster.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    item {
+                        ExpandSection("Connection", "Device address and automatic sync", expanded == "Connection", { expanded = if (expanded == "Connection") "" else "Connection" }) {
+                            var url by remember(state.esp32Url) { mutableStateOf(state.esp32Url) }
+                            Field(url, { url = it }, "ESP32 URL")
+                            Button(onClick = { onSaveUrl(url.trim()); onRefresh() }, enabled = url.isNotBlank() && !busy) { Text("Save & connect") }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Auto-sync", fontWeight = FontWeight.SemiBold)
+                                    Text("Refresh every 15 seconds while open", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Switch(autoSync, onCheckedChange = onAutoSync)
+                            }
+                            Text("Connect your phone to the Attendance_Bot Wi-Fi network first.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    item {
+                        ExpandSection("Teacher controls", "Start the next lecture and set the clock", expanded == "Teacher controls", { expanded = if (expanded == "Teacher controls") "" else "Teacher controls" }) {
+                            OutlinedButton(onClick = { openAction("clock") }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Set ESP32 clock") }
+                            OutlinedButton(onClick = { openAction("reset") }, enabled = !busy, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear attendance / next lecture") }
+                            Text("Teacher PIN required. Download the current session before clearing it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    item {
+                        ExpandSection("Diagnostics & help", "Connection details and troubleshooting", expanded == "Diagnostics & help", { expanded = if (expanded == "Diagnostics & help") "" else "Diagnostics & help" }) {
+                            Text("Device: ${if (state.lastConnectionTime == null) "Not verified" else state.deviceId}")
+                            Text("Last request: ${diagnostics.lastRequestType ?: "None"}")
+                            Text("Response time: ${diagnostics.responseTimeMs?.let { "$it ms" } ?: "—"}")
+                            Text("Last success: ${diagnostics.lastSuccessTime ?: "Never"}")
+                            diagnostics.lastErrorDetail?.let { Text("Last recorded error: $it", color = MaterialTheme.colorScheme.error) }
+                            OutlinedButton(onClick = onRefresh, enabled = !busy) { Text("Test connection") }
+                            Text("1. Join Attendance_Bot Wi-Fi.\n2. Confirm the device address under Connection.\n3. Keep this app open for automatic updates.\n4. If time is incorrect, set the clock under Teacher controls.\n\nDownloading a session closes attendance on the existing firmware. History export only exports records already saved on this phone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -346,6 +366,48 @@ fun FocusApp(
             },
             dismissButton = { TextButton(onClick = { action = null; pin = "" }) { Text("Cancel") } }
         )
+    }
+}
+
+@Composable
+private fun AttendanceHistoryScreen(
+    history: HistoryUiState,
+    export: ExportUiState,
+    onSearch: (String) -> Unit,
+    onExportHistory: (Uri) -> Unit
+) {
+    val download = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> uri?.let(onExportHistory) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            FocusCard {
+                Field(history.searchQuery, onSearch, "Search name or roll number")
+                Text("${history.records.size} matching records")
+                Button(
+                    onClick = { download.launch("AttenBot_History_${LocalDate.now()}.csv") },
+                    enabled = !export.isExporting
+                ) {
+                    Text(if (export.isExporting) "Exporting…" else "Export all saved history")
+                }
+                export.exportSuccessMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+                export.exportErrorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (history.records.isEmpty()) {
+                    Text("No saved records match your search.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        items(history.records) { record ->
+            FocusCard {
+                Text("${record.rollNumber} · ${record.studentName}", Modifier.fillMaxWidth(), fontWeight = FontWeight.SemiBold)
+                Text("${record.date} · ${record.deviceId}", Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 }
 

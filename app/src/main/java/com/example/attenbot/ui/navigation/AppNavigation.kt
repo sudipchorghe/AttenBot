@@ -12,16 +12,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.attenbot.ui.screens.FocusApp
+import com.example.attenbot.ui.screens.FocusPage
 import com.example.attenbot.ui.viewmodel.AttendanceViewModel
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.seconds
 
-/** Only two pages. Old screen files may stay in the project; they are no longer routed. */
+/** Attendance, settings and saved history share the same lifecycle-aware state. */
 @Composable
 fun AppNavigation(viewModel: AttendanceViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("attenbot_focus", Context.MODE_PRIVATE) }
-    var settings by rememberSaveable { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf(FocusPage.Attendance) }
     var className by remember { mutableStateOf(preferences.getString("class", "TE5K-B") ?: "TE5K-B") }
     var room by remember { mutableStateOf(preferences.getString("room", "") ?: "") }
     var total by remember { mutableIntStateOf(preferences.getInt("total", 64).coerceAtLeast(1)) }
@@ -46,10 +47,10 @@ fun AppNavigation(viewModel: AttendanceViewModel, modifier: Modifier = Modifier)
             }
         }
     }
-    BackHandler(settings) { settings = false }
+    BackHandler(page != FocusPage.Attendance) { page = FocusPage.Attendance }
     FocusApp(
         state = state, diagnostics = diagnostics, history = history, export = export,
-        settings = settings, onSettings = { settings = it },
+        page = page, onPageChange = { page = it },
         className = className, room = room, total = total, autoSync = autoSync,
         onProfile = { newClass, newRoom, newTotal ->
             className = newClass; room = newRoom; total = newTotal
