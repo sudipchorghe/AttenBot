@@ -12,5 +12,5 @@ data class ApiAttendanceRecord(
     @field:Json(name = "roll_number")
     val rollNumber: String = "",
     @field:Json(name = "timestamp")
-    val timestamp: String = ""
+    val timestamp: String = "",
 )

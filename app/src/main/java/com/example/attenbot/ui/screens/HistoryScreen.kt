@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.example.attenbot.ui.screens
 
 import androidx.compose.foundation.background
@@ -56,7 +58,7 @@ fun HistoryScreen(
     uiState: HistoryUiState,
     onSearchQueryChange: (String) -> Unit,
     onYearFilterChange: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val yearOptions = listOf("All", "2026", "2025", "2024")
@@ -246,7 +248,7 @@ fun HistoryScreen(
                                         }
                                     }
                                 )
-                                if (index < dateRecords.size - 1) {
+                                if (index < (dateRecords.size - 1)) {
                                     SettingsDivider(startIndent = 58.dp)
                                 }
                             }

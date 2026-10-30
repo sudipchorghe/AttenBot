@@ -1,4 +1,6 @@
 <resources>
 
-    <style name="Theme.AttenBot" parent="Theme.MaterialComponents.Light" />
+    <style name="Theme.AttenBot" parent="Theme.MaterialComponents.Light">
+        <item name="android:windowBackground">#101713</item>
+    </style>
 </resources>

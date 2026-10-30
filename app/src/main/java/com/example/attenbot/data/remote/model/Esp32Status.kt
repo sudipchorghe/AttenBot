@@ -10,5 +10,5 @@ data class Esp32Status(
     @field:Json(name = "closed")
     val closed: Boolean = false,
     @field:Json(name = "count")
-    val count: Int = 0
+    val count: Int = 0,
 )

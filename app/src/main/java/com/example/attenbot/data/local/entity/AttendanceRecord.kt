@@ -7,8 +7,8 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "attendance_records",
     indices = [
-        Index(value = ["date", "rollNumber"], unique = true)
-    ]
+        Index(value = ["date", "rollNumber"], unique = true),
+    ],
 )
 data class AttendanceRecord(
     @PrimaryKey(autoGenerate = true)

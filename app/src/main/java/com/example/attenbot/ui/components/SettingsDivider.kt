@@ -13,7 +13,7 @@ import com.example.attenbot.ui.theme.AppleTheme
 fun SettingsDivider(
     modifier: Modifier = Modifier,
     startIndent: Dp = 16.dp,
-    endIndent: Dp = 0.dp
+    endIndent: Dp = 0.dp,
 ) {
     HorizontalDivider(
         modifier = modifier

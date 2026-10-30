@@ -14,7 +14,7 @@ import com.example.attenbot.ui.theme.GroupedContainerShape
 @Composable
 fun SettingsGroup(
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
         modifier = modifier

@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.example.attenbot.ui.screens
 
 import android.content.Intent
@@ -50,7 +52,7 @@ import java.io.File
 fun ExportScreen(
     uiState: ExportUiState,
     onExportClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
 
@@ -111,7 +113,7 @@ fun ExportScreen(
                     ) {
                         Button(
                             onClick = onExportClick,
-                            enabled = !uiState.isExporting && uiState.totalRecordsToExport > 0,
+                            enabled = (!uiState.isExporting) && (uiState.totalRecordsToExport > 0),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),

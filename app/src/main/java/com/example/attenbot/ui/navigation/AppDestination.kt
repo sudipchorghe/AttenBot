@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.example.attenbot.ui.navigation
 
 import androidx.compose.material.icons.Icons
@@ -12,7 +14,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 sealed class AppDestination(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val icon: ImageVector,
 ) {
     object Sync : AppDestination(ROUTE_SYNC, "Live Sync", Icons.Rounded.Sync)
     object Teacher : AppDestination(ROUTE_TEACHER, "Teacher Controls", Icons.Rounded.Security)

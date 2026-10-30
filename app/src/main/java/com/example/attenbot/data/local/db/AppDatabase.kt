@@ -10,7 +10,7 @@ import com.example.attenbot.data.local.entity.AttendanceRecord
 @Database(
     entities = [AttendanceRecord::class],
     version = 2,
-    exportSchema = false
+    exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
 

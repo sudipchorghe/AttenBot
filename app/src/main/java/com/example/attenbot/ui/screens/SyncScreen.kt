@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.example.attenbot.ui.screens
 
 import android.net.Uri
@@ -32,7 +34,6 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -82,7 +83,7 @@ fun SyncScreen(
     onResetAttendanceClick: (pin: String) -> Unit,
     onNavigateToTeacherControls: () -> Unit,
     onNavigateToRtc: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -100,7 +101,7 @@ fun SyncScreen(
     ) { uri: Uri? ->
         val pin = pendingDownloadPin
         pendingDownloadPin = null
-        if (uri != null && !pin.isNullOrBlank()) {
+        if ((uri != null) && !pin.isNullOrBlank()) {
             onDownloadCsvClick(pin, uri)
         }
     }

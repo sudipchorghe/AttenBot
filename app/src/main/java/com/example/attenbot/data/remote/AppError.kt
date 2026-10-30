@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.example.attenbot.data.remote
 
 sealed class AppError(

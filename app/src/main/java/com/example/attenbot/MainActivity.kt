@@ -5,6 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import com.example.attenbot.data.local.DataStoreManager
 import com.example.attenbot.data.local.db.AppDatabase
 import com.example.attenbot.data.repository.AttendanceRepository
@@ -27,7 +31,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AttenBotTheme {
-                AppNavigation(viewModel = viewModel)
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    AppNavigation(viewModel = viewModel)
+                }
             }
         }
     }

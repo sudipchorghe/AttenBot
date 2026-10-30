@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.example.attenbot.ui.screens
 
 import android.net.Uri

@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -13,6 +14,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.attenbot.ui.screens.FocusApp
 import com.example.attenbot.ui.viewmodel.AttendanceViewModel
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 
 /** Only two pages. Old screen files may stay in the project; they are no longer routed. */
 @Composable
@@ -40,7 +42,7 @@ fun AppNavigation(viewModel: AttendanceViewModel, modifier: Modifier = Modifier)
                     !current.isResetting && !current.isSettingRtcTime) {
                     viewModel.refreshAll()
                 }
-                delay(15_000)
+                delay(15.seconds)
             }
         }
     }
@@ -51,10 +53,13 @@ fun AppNavigation(viewModel: AttendanceViewModel, modifier: Modifier = Modifier)
         className = className, room = room, total = total, autoSync = autoSync,
         onProfile = { newClass, newRoom, newTotal ->
             className = newClass; room = newRoom; total = newTotal
-            preferences.edit().putString("class", newClass).putString("room", newRoom)
-                .putInt("total", newTotal).apply()
+            preferences.edit {
+                putString("class", newClass)
+                putString("room", newRoom)
+                putInt("total", newTotal)
+            }
         },
-        onAutoSync = { autoSync = it; preferences.edit().putBoolean("auto_sync", it).apply() },
+        onAutoSync = { autoSync = it; preferences.edit { putBoolean("auto_sync", it) } },
         onSaveUrl = viewModel::saveBaseUrl,
         onRefresh = viewModel::refreshAll,
         onDownload = { pin, uri -> viewModel.downloadCsv(pin, uri, context.contentResolver) },
